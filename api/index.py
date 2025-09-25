@@ -1,24 +1,35 @@
 # api/index.py
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import os, json, math
 
 app = FastAPI()
 
-# --- CORS: allow all origins for POST + preflight
+# Standard CORS middleware (preferred)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all origins (safe since we don't use credentials)
+    allow_origins=["*"],                # allow all origins (only if you DON'T use credentials)
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
-    allow_credentials=False,  # must be False when allow_origins=["*"]
+    allow_credentials=False,
 )
 
+# Defensive: ensure CORS headers are always present even if something bypasses CORSMiddleware
+@app.middleware("http")
+async def force_cors_headers(request: Request, call_next):
+    resp = await call_next(request)
+    # Add the necessary CORS headers to every response
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept"
+    return resp
+
+# Explicit OPTIONS handler for preflight (helps debugging)
 @app.options("/metrics")
 async def metrics_options():
-    # explicit preflight handler (returns allowed headers via middleware)
     return Response(status_code=204)
 
 class Query(BaseModel):
@@ -61,4 +72,5 @@ def metrics(query: Query):
             "avg_uptime": sum(uptimes) / len(uptimes),
             "breaches": sum(1 for x in latencies if x > query.threshold_ms),
         }
-    return resp
+    # Use JSONResponse to ensure headers from middleware are preserved
+    return JSONResponse(resp)
