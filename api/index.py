@@ -3,12 +3,11 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List
 import os, json, math
 
 app = FastAPI()
 
-# CORSMiddleware (primary)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,7 +16,6 @@ app.add_middleware(
     allow_credentials=False,
 )
 
-# Defensive middleware: ensure CORS headers on every response
 @app.middleware("http")
 async def add_cors_headers(request: Request, call_next):
     resp = await call_next(request)
@@ -26,12 +24,10 @@ async def add_cors_headers(request: Request, call_next):
     resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept"
     return resp
 
-# respond to OPTIONS preflight for /metrics explicitly
 @app.options("/metrics")
 async def metrics_options():
     return Response(status_code=204)
 
-# Optional: simple GET so the route exists for GET requests too
 @app.get("/metrics")
 async def metrics_get():
     return JSONResponse({"message": "Send a POST to /metrics with JSON body"}, status_code=200)
