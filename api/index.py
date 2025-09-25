@@ -8,29 +8,33 @@ import os, json, math
 
 app = FastAPI()
 
-# Standard CORS middleware (preferred)
+# CORSMiddleware (primary)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],                # allow all origins (only if you DON'T use credentials)
+    allow_origins=["*"],
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=False,
 )
 
-# Defensive: ensure CORS headers are always present even if something bypasses CORSMiddleware
+# Defensive middleware: ensure CORS headers on every response
 @app.middleware("http")
-async def force_cors_headers(request: Request, call_next):
+async def add_cors_headers(request: Request, call_next):
     resp = await call_next(request)
-    # Add the necessary CORS headers to every response
     resp.headers["Access-Control-Allow-Origin"] = "*"
     resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept"
     return resp
 
-# Explicit OPTIONS handler for preflight (helps debugging)
+# respond to OPTIONS preflight for /metrics explicitly
 @app.options("/metrics")
 async def metrics_options():
     return Response(status_code=204)
+
+# Optional: simple GET so the route exists for GET requests too
+@app.get("/metrics")
+async def metrics_get():
+    return JSONResponse({"message": "Send a POST to /metrics with JSON body"}, status_code=200)
 
 class Query(BaseModel):
     regions: List[str]
@@ -72,5 +76,4 @@ def metrics(query: Query):
             "avg_uptime": sum(uptimes) / len(uptimes),
             "breaches": sum(1 for x in latencies if x > query.threshold_ms),
         }
-    # Use JSONResponse to ensure headers from middleware are preserved
     return JSONResponse(resp)
