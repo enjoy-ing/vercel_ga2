@@ -7,18 +7,18 @@ import os, json, math
 
 app = FastAPI()
 
-# --- CORS middleware: allow any origin for POST/OPTIONS
+# --- CORS: allow all origins for POST + preflight
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],              # allow all origins
-    allow_methods=["GET", "POST", "OPTIONS"],  # include OPTIONS for preflight
+    allow_origins=["*"],  # allow all origins (safe since we don't use credentials)
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
-    allow_credentials=False,         # False when using allow_origins=["*"]
+    allow_credentials=False,  # must be False when allow_origins=["*"]
 )
 
-# optional explicit preflight fallback (helps debugging)
 @app.options("/metrics")
 async def metrics_options():
+    # explicit preflight handler (returns allowed headers via middleware)
     return Response(status_code=204)
 
 class Query(BaseModel):
